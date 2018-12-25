@@ -1,0 +1,12 @@
+.container {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.video {
+  border: 1px solid grey;
+  margin: 15px;
+  padding: 5px;
+  width: 200px;
+  height: 125px;
+}

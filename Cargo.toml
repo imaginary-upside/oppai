@@ -1,0 +1,19 @@
+[package]
+name = "oppai"
+version = "0.1.0"
+authors = ["Some Guy"]
+edition = "2018"
+
+[dependencies]
+web-view = "0.4.0"
+serde = "1.0.82"
+serde_derive = "1.0.82"
+serde_json = "1.0.32"
+iron = "0.6.0"
+staticfile = "0.5.0"
+mount = "0.4.0"
+router = "0.6.0"
+http = "0.1.14"
+glob = "0.2"
+regex = "1"
+rusqlite = "0.16"
