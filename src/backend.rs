@@ -157,7 +157,6 @@ pub fn search(conn: &SqliteConnection, code: &str, title: &str, actress: &str) -
 
     let mut true_videos: Vec<Video> = Vec::new();
     for video in videos {
-        println!("{}", video.code);
         let video_actresss = video_actresss::table
             .filter(video_actresss::video_id.eq(video.id))
             .load::<VideoActress>(conn)

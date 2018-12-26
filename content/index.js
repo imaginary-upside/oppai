@@ -31,10 +31,15 @@ async function search() {
   let codeDoc = document.getElementById("search_code");
   let titleDoc = document.getElementById("search_title");
   let actressDoc = document.getElementById("search_actress");
+  let body = { code: codeDoc.value, title: titleDoc.value, actress: actressDoc.value }
+  let uri = "/api/search/";
+  if (body.code == "" && body.title == "" && body.actress == "") {
+    uri = "/api/get_videos";
+  }
   
-  let response = await fetch("/api/search/", {
+  let response = await fetch(uri, {
     method: "POST",
-    body: JSON.stringify({ code: codeDoc.value, title: titleDoc.value, actress: actressDoc.value })
+    body: JSON.stringify(body)
   });
   let videos = await response.text();
   renderVideos(JSON.parse(videos));
