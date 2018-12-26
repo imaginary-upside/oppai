@@ -15,6 +15,7 @@ async function main() {
 
   document.getElementById("search_code").addEventListener("search", search);
   document.getElementById("search_title").addEventListener("search", search);
+  document.getElementById("search_actress").addEventListener("search", search);
 
   document.getElementById("scan").addEventListener("click", async () => {
     await fetch("/api/scan_videos");
@@ -29,12 +30,11 @@ main();
 async function search() {
   let codeDoc = document.getElementById("search_code");
   let titleDoc = document.getElementById("search_title");
-
-  console.log(JSON.stringify({ code: codeDoc.value, title: titleDoc.value }));
+  let actressDoc = document.getElementById("search_actress");
   
   let response = await fetch("/api/search/", {
     method: "POST",
-    body: JSON.stringify({ code: codeDoc.value, title: titleDoc.value })
+    body: JSON.stringify({ code: codeDoc.value, title: titleDoc.value, actress: actressDoc.value })
   });
   let videos = await response.text();
   renderVideos(JSON.parse(videos));

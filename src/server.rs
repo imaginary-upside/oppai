@@ -17,7 +17,8 @@ use std::path::Path;
 #[derive(Deserialize)]
 struct SearchData {
     code: String,
-    title: String
+    title: String,
+    actress: String
 }
 
 pub fn start_server() {
@@ -64,6 +65,6 @@ fn search(req: &mut Request) -> IronResult<Response> {
     let mut body = String::new();
     req.body.read_to_string(&mut body).unwrap();
     let search_data: SearchData = serde_json::from_str(&body).unwrap();
-    let videos = backend::search(&*conn, &search_data.code, &search_data.title);
+    let videos = backend::search(&*conn, &search_data.code, &search_data.title, &search_data.actress);
     Ok(Response::with((iron::status::Ok, serde_json::to_string(&videos).unwrap())))
 }
