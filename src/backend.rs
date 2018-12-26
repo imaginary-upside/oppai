@@ -43,13 +43,13 @@ table! {
 #[derive(Identifiable, Serialize, Deserialize, Queryable, Associations)]
 pub struct Actress {
     id: i32,
-    name: String
+    name: String,
 }
 
 #[derive(Insertable)]
 #[table_name = "actresss"]
 pub struct NewActress {
-    name: String
+    name: String,
 }
 
 table! {
@@ -65,14 +65,14 @@ table! {
 pub struct VideoActress {
     id: i32,
     video_id: i32,
-    actress_id: i32
+    actress_id: i32,
 }
 
 #[derive(Insertable)]
 #[table_name = "video_actresss"]
 pub struct NewVideoActress {
     video_id: i32,
-    actress_id: i32
+    actress_id: i32,
 }
 
 table! {
@@ -94,7 +94,10 @@ pub fn scan_videos(conn: &SqliteConnection) {
     for entry in glob("/mnt/storage/JAV/*/* *.[!j]*").unwrap() {
         match entry {
             Ok(path) => {
-                let v = create_video(&path);
+                let v = match create_video(&path) {
+                    Some(video) => video,
+                    None => continue,
+                };
                 diesel::insert_into(videos::table)
                     .values(&v)
                     .execute(conn)
@@ -104,7 +107,7 @@ pub fn scan_videos(conn: &SqliteConnection) {
                     .filter(videos::code.eq(v.code))
                     .first::<Video>(conn)
                     .unwrap();
-                
+
                 match create_actresss(&path) {
                     Some(actresss) => {
                         for a in actresss {
@@ -119,7 +122,7 @@ pub fn scan_videos(conn: &SqliteConnection) {
 
                             let video_actress = NewVideoActress {
                                 video_id: video_stored.id,
-                                actress_id: actress_stored.id
+                                actress_id: actress_stored.id,
                             };
                             diesel::insert_into(video_actresss::table)
                                 .values(&video_actress)
@@ -161,7 +164,7 @@ pub fn search(conn: &SqliteConnection, code: &str, title: &str, actress: &str) -
             .filter(video_actresss::video_id.eq(video.id))
             .load::<VideoActress>(conn)
             .unwrap();
-        
+
         let mut toggle = true;
         if video_actresss.len() != 0 {
             for actress in actresss.iter() {
@@ -184,42 +187,37 @@ fn create_actresss(path: &Path) -> Option<Vec<NewActress>> {
     iter.next()?;
     let names = iter.next()?.get(1)?.as_str().to_string();
 
-    Some(names.split(",").map(|n| {
-        NewActress {
-            name: n.to_string()
-        }
-    }).collect())
+    Some(
+        names
+            .split(",")
+            .map(|n| NewActress {
+                name: n.to_string(),
+            })
+            .collect(),
+    )
 }
 
-fn create_video(path: &Path) -> NewVideo {
-    let filename = path.file_name().unwrap().to_str().unwrap();
+fn create_video(path: &Path) -> Option<NewVideo> {
+    let filename = path.file_name()?.to_str()?;
     let re_code = Regex::new(r"\[(?P<code>.*?)\]").unwrap();
     let re_title = Regex::new(r"\](?P<title>.*?)\[").unwrap();
 
-    let dir: String = path
-        .parent()
-        .unwrap()
-        .file_name()
-        .unwrap()
-        .to_str()
-        .unwrap()
-        .to_string();
+    let dir: String = path.parent()?.file_name()?.to_str()?.to_string();
     let code = re_code
-        .captures(filename)
-        .unwrap()
-        .name("code")
-        .map_or("".to_string(), |m| m.as_str().to_string());
-    let title = match re_title.captures(filename) {
-        Some(v) => v
-            .name("title")
-            .map_or("".to_string(), |m| m.as_str().to_string()),
-        None => "".to_string(),
-    };
+        .captures(filename)?
+        .name("code")?
+        .as_str()
+        .to_string();
+    let title = re_title
+        .captures(filename)?
+        .name("title")?
+        .as_str()
+        .to_string();
 
-    NewVideo {
+    Some(NewVideo {
         title: title,
         code: code.to_owned(),
-        location: String::from(path.to_str().unwrap()),
+        location: String::from(path.to_str()?),
         cover: format!("{}/{} Cover Thumb.jpg", dir, code),
-    }
+    })
 }
