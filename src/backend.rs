@@ -1,3 +1,7 @@
+// Hides compiler warning from diesel
+// https://github.com/diesel-rs/diesel/issues/1785
+#![allow(proc_macro_derive_resolution_fallback)]
+
 extern crate diesel;
 extern crate glob;
 extern crate iron_diesel_middleware;
@@ -8,11 +12,9 @@ extern crate serde_json;
 use diesel::prelude::*;
 use diesel::sqlite::SqliteConnection;
 use glob::glob;
-use iron_diesel_middleware::{DieselMiddleware, DieselReqExt};
 use regex::Regex;
 use std::path::Path;
 use std::process::Command;
-use diesel::{sql_query, insert_into};
 
 #[derive(Serialize, Deserialize, Queryable)]
 pub struct Video {
@@ -47,7 +49,7 @@ pub fn get_videos(conn: &SqliteConnection) -> Vec<Video> {
 }
 
 pub fn scan_videos(conn: &SqliteConnection) {
-   /* conn.execute(
+    /* conn.execute(
         "CREATE TABLE IF NOT EXISTS video (
             id INTEGER PRIMARY KEY,
             code TEXT,
@@ -60,12 +62,15 @@ pub fn scan_videos(conn: &SqliteConnection) {
     .unwrap();*/
 
     diesel::delete(video::table).execute(conn).unwrap();
-    
-    for entry in glob("/mnt/storage/JAV/*/* *.mkv").unwrap() {
+
+    for entry in glob("/mnt/storage/JAV/*/* *.[!j]*").unwrap() {
         match entry {
             Ok(path) => {
                 let v = create_video(&path);
-                diesel::insert_into(video::table).values(&v).execute(conn).unwrap();
+                diesel::insert_into(video::table)
+                    .values(&v)
+                    .execute(conn)
+                    .unwrap();
             }
             Err(_e) => {}
         }
@@ -80,13 +85,17 @@ pub fn play_video(conn: &SqliteConnection, id: i32) {
         .unwrap();
 }
 
-pub fn search(conn: &SqliteConnection, text: &str) -> Vec<Video> {
-    video::table.load::<Video>(conn).unwrap()
+pub fn search(conn: &SqliteConnection, code: &str, title: &str) -> Vec<Video> {
+    video::table
+        .filter(video::code.like(format!("%{}%", code)))
+        .filter(video::title.like(format!("%{}%", title)))
+        .load::<Video>(conn)
+        .unwrap()
 }
 
 fn create_video(path: &Path) -> NewVideo {
     let filename = path.file_name().unwrap().to_str().unwrap();
-    let re_code = Regex::new(r"\[(?P<title>.*?)\]").unwrap();
+    let re_code = Regex::new(r"\[(?P<code>.*?)\]").unwrap();
     let re_title = Regex::new(r"\](?P<title>.*?)\[").unwrap();
 
     let dir: String = path
@@ -100,13 +109,19 @@ fn create_video(path: &Path) -> NewVideo {
     let code = re_code
         .captures(filename)
         .unwrap()
-        .name("title")
+        .name("code")
         .map_or("".to_string(), |m| m.as_str().to_string());
+    let title = match re_title.captures(filename) {
+        Some(v) => v
+            .name("title")
+            .map_or("".to_string(), |m| m.as_str().to_string()),
+        None => "".to_string(),
+    };
 
     return NewVideo {
-        title: "re_code.captures(filename).unwrap()[0]".to_string(),
+        title: title,
         code: code.to_owned(),
         location: String::from(path.to_str().unwrap()),
-        cover: format!("{}/{} Cover.jpg", dir, code),
+        cover: format!("{}/{} Cover Thumb.jpg", dir, code),
     };
 }

@@ -13,20 +13,44 @@ async function main() {
     }
   }
 
-  document.getElementById("search").addEventListener("search", async ev => {
-    let response = await fetch("/api/search/", {
-      method: "POST",
-      body: ev.srcElement.value
-    });
+  document.getElementById("search_code").addEventListener("search", search);
+  document.getElementById("search_title").addEventListener("search", search);
+
+  document.getElementById("scan").addEventListener("click", async () => {
+    await fetch("/api/scan_videos");
+
+    let response = await fetch("/api/get_videos/");
     let videos = await response.text();
-    console.log(videos);
     renderVideos(JSON.parse(videos));
   });
 }
 main();
 
+async function search() {
+  let codeDoc = document.getElementById("search_code");
+  let titleDoc = document.getElementById("search_title");
+
+  console.log(JSON.stringify({ code: codeDoc.value, title: titleDoc.value }));
+  
+  let response = await fetch("/api/search/", {
+    method: "POST",
+    body: JSON.stringify({ code: codeDoc.value, title: titleDoc.value })
+  });
+  let videos = await response.text();
+  renderVideos(JSON.parse(videos));
+}
+
 function renderVideos(videos) {
+
   let videosDoc = document.getElementById("videos");
+ 
+  // Delete all existing videos
+  while (videosDoc.firstChild) {
+    videosDoc.removeChild(videosDoc.firstChild);
+  }
+
+  console.log(videos.length);
+
   videos.forEach(video => {
     let videoDoc = document.createElement("span");
     videoDoc.className = "video";

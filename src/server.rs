@@ -14,6 +14,12 @@ use staticfile::Static;
 use std::io::Read;
 use std::path::Path;
 
+#[derive(Deserialize)]
+struct SearchData {
+    code: String,
+    title: String
+}
+
 pub fn start_server() {
     let mut mount = Mount::new();
     mount.mount("/", Static::new(Path::new("content/")));
@@ -50,13 +56,14 @@ fn play_video(req: &mut Request) -> IronResult<Response> {
     let mut body = String::new();
     req.body.read_to_string(&mut body).unwrap();
     backend::play_video(&*conn, body.parse::<i32>().unwrap());
-    Ok(Response::with((iron::status::Ok, "".to_string())))
+    Ok(Response::with(iron::status::Ok))
 }
 
 fn search(req: &mut Request) -> IronResult<Response> {
     let conn: DieselPooledConnection<SqliteConnection> = req.db_conn();
     let mut body = String::new();
     req.body.read_to_string(&mut body).unwrap();
-    backend::search(&*conn, &body);
-    Ok(Response::with((iron::status::Ok, "".to_string())))
+    let search_data: SearchData = serde_json::from_str(&body).unwrap();
+    let videos = backend::search(&*conn, &search_data.code, &search_data.title);
+    Ok(Response::with((iron::status::Ok, serde_json::to_string(&videos).unwrap())))
 }

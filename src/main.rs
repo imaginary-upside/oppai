@@ -1,9 +1,9 @@
 extern crate oppai;
 extern crate web_view;
 
+use oppai::server;
 use std::thread;
 use web_view::*;
-use oppai::server;
 
 fn main() {
     thread::spawn(move || {
