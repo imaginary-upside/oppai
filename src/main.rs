@@ -4,8 +4,11 @@ extern crate web_view;
 use oppai::server;
 use std::thread;
 use web_view::*;
+use oppai::config::load_config;
 
 fn main() {
+    load_config();
+
     thread::spawn(move || {
         server::start_server();
     });

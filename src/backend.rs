@@ -11,6 +11,7 @@ use glob::glob;
 use regex::Regex;
 use std::path::Path;
 use std::process::Command;
+use crate::config::SETTINGS;
 
 #[derive(Identifiable, Serialize, Deserialize, Queryable, Associations)]
 pub struct Video {
@@ -91,7 +92,8 @@ pub fn scan_videos(conn: &SqliteConnection) {
     diesel::delete(videos::table).execute(conn).unwrap();
     diesel::delete(actresss::table).execute(conn).unwrap();
 
-    for entry in glob("/mnt/storage/JAV/*/* *.[!j]*").unwrap() {
+    let path = SETTINGS.read().unwrap().get::<String>("path").unwrap();
+    for entry in glob(&path).unwrap() {
         match entry {
             Ok(path) => {
                 let v = match create_video(&path) {
