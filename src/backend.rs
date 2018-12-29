@@ -1,185 +1,105 @@
-extern crate diesel;
 extern crate glob;
-extern crate iron_diesel_middleware;
 extern crate regex;
 extern crate serde_derive;
 extern crate serde_json;
+extern crate rusqlite;
 
-use diesel::prelude::*;
-use diesel::sqlite::SqliteConnection;
 use glob::glob;
 use regex::Regex;
 use std::path::Path;
 use std::process::Command;
 use crate::config::SETTINGS;
+use crate::models::*;
 
-#[derive(Identifiable, Serialize, Deserialize, Queryable, Associations)]
-pub struct Video {
-    id: i32,
-    title: String,
-    code: String,
-    location: String,
-    cover: String,
+pub fn get_videos(conn: rusqlite::Connection) -> Vec<Video> {
+    let mut stmt = conn.prepare("SELECT rowid, * FROM video").unwrap();
+    let video_iter = stmt.query_map(rusqlite::NO_PARAMS, map_sql_to_video).unwrap();
+    video_iter.map(|video| video.unwrap()).collect()
 }
 
-#[derive(Insertable)]
-#[table_name = "videos"]
-pub struct NewVideo {
-    title: String,
-    code: String,
-    location: String,
-    cover: String,
-}
+pub fn scan_videos(conn: rusqlite::Connection) {
+    conn.execute("delete from video", rusqlite::NO_PARAMS).unwrap();
+    conn.execute("delete from actress", rusqlite::NO_PARAMS).unwrap();
+    conn.execute("delete from video_actress", rusqlite::NO_PARAMS).unwrap();
 
-table! {
-    videos (id) {
-        id -> Integer,
-        title -> Text,
-        code -> Text,
-        location -> Text,
-        cover -> Text,
-    }
-}
-
-#[derive(Identifiable, Serialize, Deserialize, Queryable, Associations)]
-pub struct Actress {
-    id: i32,
-    name: String,
-}
-
-#[derive(Insertable)]
-#[table_name = "actresss"]
-pub struct NewActress {
-    name: String,
-}
-
-table! {
-    actresss (id) {
-        id -> Integer,
-        name -> Text,
-    }
-}
-
-#[derive(Identifiable, Queryable, Associations)]
-#[belongs_to(Video)]
-#[belongs_to(Actress)]
-pub struct VideoActress {
-    id: i32,
-    video_id: i32,
-    actress_id: i32,
-}
-
-#[derive(Insertable)]
-#[table_name = "video_actresss"]
-pub struct NewVideoActress {
-    video_id: i32,
-    actress_id: i32,
-}
-
-table! {
-    video_actresss (id) {
-        id -> Integer,
-        video_id -> Integer,
-        actress_id -> Integer,
-    }
-}
-
-pub fn get_videos(conn: &SqliteConnection) -> Vec<Video> {
-    videos::table.load::<Video>(conn).unwrap()
-}
-
-pub fn scan_videos(conn: &SqliteConnection) {
-    diesel::delete(videos::table).execute(conn).unwrap();
-    diesel::delete(actresss::table).execute(conn).unwrap();
-
-    let path = SETTINGS.read().unwrap().get::<String>("path").unwrap();
-    for entry in glob(&path).unwrap() {
+    let glob_path = SETTINGS.read().unwrap().get::<String>("path").unwrap();
+    for entry in glob(&glob_path).unwrap() {
         match entry {
             Ok(path) => {
-                let v = match create_video(&path) {
-                    Some(video) => video,
-                    None => continue,
+                let video = match create_video(&path) {
+                    Some(v) => v,
+                    None => continue
                 };
-                diesel::insert_into(videos::table)
-                    .values(&v)
-                    .execute(conn)
-                    .unwrap();
+                conn.execute("INSERT INTO video (code, title, location, cover)
+                             VALUES (?1, ?2, ?3, ?4)",
+                    &[&video.code, &video.title, &video.location, &video.cover]).unwrap();
 
-                let video_stored = videos::table
-                    .filter(videos::code.eq(v.code))
-                    .first::<Video>(conn)
-                    .unwrap();
 
+                let mut stmt_fuck = conn.prepare("select rowid, * from video where code = ?1").unwrap();
+                let mut video_iter = stmt_fuck.query_map(&[&video.code], map_sql_to_video).unwrap();
+                let stored_video = video_iter.next().unwrap().unwrap();
+                
                 match create_actresss(&path) {
                     Some(actresss) => {
-                        for a in actresss {
-                            diesel::insert_or_ignore_into(actresss::table)
-                                .values(&a)
-                                .execute(conn)
-                                .unwrap();
-                            let actress_stored = actresss::table
-                                .filter(actresss::name.eq(a.name))
-                                .first::<Actress>(conn)
-                                .unwrap();
+                        for actress in actresss {
+                            conn.execute("insert into actress (name) select ?1
+                                         where not exists(select 1 from actress where name = ?1)",
+                                &[&actress.name]).unwrap();
 
-                            let video_actress = NewVideoActress {
-                                video_id: video_stored.id,
-                                actress_id: actress_stored.id,
-                            };
-                            diesel::insert_into(video_actresss::table)
-                                .values(&video_actress)
-                                .execute(conn)
-                                .unwrap();
+
+                            let mut stmt = conn.prepare("select rowid, * from actress where name = ?1").unwrap();
+                            let mut actress_iter = stmt.query_map(&[&actress.name], map_sql_to_actress).unwrap();
+                            let actress = actress_iter.next().unwrap().unwrap();
+
+
+                            conn.execute("insert into video_actress (video_id, actress_id) values (?1, ?2)",
+                                &[stored_video.id, actress.id]).unwrap();
                         }
-                    }
+                    },
                     None => {}
-                }
-            }
+                };
+            },
             Err(_e) => {}
         }
     }
 }
 
-pub fn play_video(conn: &SqliteConnection, id: i32) {
-    let video = videos::table.find(id).first::<Video>(conn).unwrap();
+pub fn play_video(conn: rusqlite::Connection, id: i32) {
+    let mut stmt = conn.prepare("select rowid, * from video where rowid = ?1").unwrap();
+    let mut video_iter = stmt.query_map(&[id], map_sql_to_video).unwrap();
+    let video: Video = video_iter.next().unwrap().unwrap();
     Command::new("xdg-open")
         .arg(video.location.to_owned())
         .output()
         .unwrap();
 }
 
-pub fn search(conn: &SqliteConnection, code: &str, title: &str, actress: &str) -> Vec<Video> {
-    let videos = videos::table
-        .filter(videos::code.like(format!("%{}%", code)))
-        .filter(videos::title.like(format!("%{}%", title)))
-        .load::<Video>(conn)
-        .unwrap();
-
-    let actresss = actresss::table
-        .filter(actresss::name.like(format!("%{}%", actress)))
-        .load::<Actress>(conn)
-        .unwrap();
-
-    let mut true_videos: Vec<Video> = Vec::new();
-    for video in videos {
-        let video_actresss = video_actresss::table
-            .filter(video_actresss::video_id.eq(video.id))
-            .load::<VideoActress>(conn)
-            .unwrap();
-
-        let mut toggle = true;
-        if video_actresss.len() != 0 {
-            for actress in actresss.iter() {
-                if actress.id != video_actresss[0].actress_id {
-                    toggle = false;
-                }
-            }
-        }
-        if toggle {
-            true_videos.push(video);
-        }
+pub fn search(conn: rusqlite::Connection, video_text: &str, actress_text: &str) -> Vec<Video> {
+    if video_text != "" && actress_text != "" {
+        let mut stmt = conn.prepare(
+            "select video.rowid, video.* from video
+            join video_actress on video_actress.video_id = video.rowid
+            where video_actress.actress_id in (select rowid from actress where name match ?2)
+            and video match ?1").unwrap();
+        let video_iter = stmt.query_map(&[video_text, actress_text], map_sql_to_video).unwrap();
+        video_iter.map(|video| video.unwrap()).collect()
+    } else if video_text != "" && actress_text == "" {
+        let mut stmt = conn.prepare("select rowid, * from video where video match ?1").unwrap();
+        let video_iter = stmt.query_map(&[video_text], map_sql_to_video).unwrap();
+        video_iter.map(|video| video.unwrap()).collect()
+    } else if video_text == "" && actress_text != "" {
+        let mut stmt = conn.prepare(
+            "select video.rowid, video.* from video
+            join video_actress on video_actress.video_id = video.rowid
+            where video_actress.actress_id in (select rowid from actress where name match ?1)"
+        ).unwrap();
+        let video_iter = stmt.query_map(&[actress_text], map_sql_to_video).unwrap();
+        video_iter.map(|video| video.unwrap()).collect()
+    } else {
+        let mut stmt = conn.prepare("select rowid, * from video").unwrap();
+        let video_iter = stmt.query_map(rusqlite::NO_PARAMS, map_sql_to_video).unwrap();
+        video_iter.map(|video| video.unwrap()).collect()
     }
-    return true_videos;
 }
 
 fn create_actresss(path: &Path) -> Option<Vec<NewActress>> {

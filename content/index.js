@@ -13,8 +13,7 @@ async function main() {
     }
   }
 
-  document.getElementById("search_code").addEventListener("search", search);
-  document.getElementById("search_title").addEventListener("search", search);
+  document.getElementById("search_video").addEventListener("search", search);
   document.getElementById("search_actress").addEventListener("search", search);
 
   document.getElementById("scan").addEventListener("click", async () => {
@@ -28,12 +27,11 @@ async function main() {
 main();
 
 async function search() {
-  let codeDoc = document.getElementById("search_code");
-  let titleDoc = document.getElementById("search_title");
+  let videoDoc = document.getElementById("search_video");
   let actressDoc = document.getElementById("search_actress");
-  let body = { code: codeDoc.value, title: titleDoc.value, actress: actressDoc.value }
+  let body = { video: videoDoc.value, actress: actressDoc.value }
   let uri = "/api/search/";
-  if (body.code == "" && body.title == "" && body.actress == "") {
+  if (body.video == "" && body.actress == "") {
     uri = "/api/get_videos";
   }
   

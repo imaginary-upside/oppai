@@ -1,4 +1,0 @@
-CREATE TABLE actresss (
-  id INTEGER PRIMARY KEY,
-  name TEXT UNIQUE
-)
