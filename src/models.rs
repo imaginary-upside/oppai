@@ -4,14 +4,7 @@ extern crate rusqlite;
 
 #[derive(Serialize)]
 pub struct Video {
-    pub id: i32,
-    pub title: String,
-    pub code: String,
-    pub location: String,
-    pub cover: String,
-}
-
-pub struct NewVideo {
+    pub id: Option<i32>,
     pub title: String,
     pub code: String,
     pub location: String,
@@ -19,17 +12,13 @@ pub struct NewVideo {
 }
 
 pub struct Actress {
-    pub id: i32,
-    pub name: String
-}
-
-pub struct NewActress {
+    pub id: Option<i32>,
     pub name: String
 }
 
 pub fn map_sql_to_video(row: &rusqlite::Row) -> Video {
     Video {
-        id: row.get(0),
+        id: Some(row.get(0)),
         title: row.get(1),
         code: row.get(2),
         location: row.get(3),
@@ -39,7 +28,7 @@ pub fn map_sql_to_video(row: &rusqlite::Row) -> Video {
 
 pub fn map_sql_to_actress(row: &rusqlite::Row) -> Actress {
     Actress {
-        id: row.get(0),
+        id: Some(row.get(0)),
         name: row.get(1),
     }
 }

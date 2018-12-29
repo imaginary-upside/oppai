@@ -102,7 +102,7 @@ pub fn search(conn: rusqlite::Connection, video_text: &str, actress_text: &str) 
     }
 }
 
-fn create_actresss(path: &Path) -> Option<Vec<NewActress>> {
+fn create_actresss(path: &Path) -> Option<Vec<Actress>> {
     let filename = path.file_name()?.to_str()?;
     let re = Regex::new(r"\[(.*?)\]").unwrap();
     let mut iter = re.captures_iter(filename);
@@ -112,14 +112,15 @@ fn create_actresss(path: &Path) -> Option<Vec<NewActress>> {
     Some(
         names
             .split(",")
-            .map(|n| NewActress {
+            .map(|n| Actress {
+                id: None,
                 name: n.to_string(),
             })
             .collect(),
     )
 }
 
-fn create_video(path: &Path) -> Option<NewVideo> {
+fn create_video(path: &Path) -> Option<Video> {
     let filename = path.file_name()?.to_str()?;
     let re_code = Regex::new(r"\[(?P<code>.*?)\]").unwrap();
     let re_title = Regex::new(r"\](?P<title>.*?)\[").unwrap();
@@ -136,7 +137,8 @@ fn create_video(path: &Path) -> Option<NewVideo> {
         .as_str()
         .to_string();
 
-    Some(NewVideo {
+    Some(Video {
+        id: None,
         title: title,
         code: code.to_owned(),
         location: String::from(path.to_str()?),
