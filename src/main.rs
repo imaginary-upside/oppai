@@ -17,7 +17,7 @@ fn main() {
         .title("Oppai")
         .content(Content::Url("http://127.0.0.1:10010"))
         .size(1280, 720)
-        .debug(true)
+        .debug(cfg!(debug_assertions))
         .user_data(())
         .invoke_handler(|_webview, _arg| Ok(()))
         .build()
