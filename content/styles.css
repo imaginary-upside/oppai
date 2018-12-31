@@ -14,6 +14,12 @@
   margin: 15px;
   padding: 5px;
   width: 200px;
-  height: 125px;
-  background-size: 200px 125px;
+}
+
+.video img {
+  width: 200px;
+}
+
+.video .title {
+  text-align: center;
 }

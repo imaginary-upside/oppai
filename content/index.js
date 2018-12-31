@@ -44,7 +44,6 @@ async function search() {
 }
 
 function renderVideos(videos) {
-
   let videosDoc = document.getElementById("videos");
  
   // Delete all existing videos
@@ -52,13 +51,19 @@ function renderVideos(videos) {
     videosDoc.removeChild(videosDoc.firstChild);
   }
 
-  console.log(videos.length);
-
   videos.forEach(video => {
     let videoDoc = document.createElement("span");
     videoDoc.className = "video";
-    videoDoc.innerText = video["code"];
-    videoDoc.style.backgroundImage = `url('http://127.0.0.1:10010/assets/${video["cover"]}')`;
+
+    let imgDoc = document.createElement("img");
+    imgDoc.setAttribute("src", "http://127.0.0.1:10010/assets/" + video["cover"]);
+    videoDoc.appendChild(imgDoc);
+
+    let titleDoc = document.createElement("div");
+    titleDoc.innerText = video["code"];
+    titleDoc.setAttribute("class", "title");
+    videoDoc.appendChild(titleDoc);
+
     videoDoc.addEventListener("click", () => {
       let http = new XMLHttpRequest();
       http.open("POST", "http://127.0.0.1:10010/api/play_video");

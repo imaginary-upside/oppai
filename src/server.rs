@@ -10,6 +10,7 @@ use mount::Mount;
 use staticfile::Static;
 use std::io::Read;
 use std::path::Path;
+use crate::config::SETTINGS;
 
 #[derive(Deserialize)]
 struct SearchData {
@@ -18,9 +19,11 @@ struct SearchData {
 }
 
 pub fn start_server() {
+    let assets_path = SETTINGS.read().unwrap().get::<String>("assets").unwrap();
+    
     let mut mount = Mount::new();
     mount.mount("/", Static::new(Path::new("content/")));
-    mount.mount("/assets/", Static::new(Path::new("/mnt/storage/JAV/")));
+    mount.mount("/assets/", Static::new(Path::new(&assets_path)));
     mount.mount("/api/scan_videos", scan_videos);
     mount.mount("/api/get_videos", get_videos);
     mount.mount("/api/play_video", play_video);
