@@ -19,7 +19,7 @@ struct SearchData {
 }
 
 pub fn start_server() {
-    let assets_path = SETTINGS.read().unwrap().get::<String>("assets").unwrap();
+    let assets_path = SETTINGS.read().unwrap().get::<String>("path").unwrap();
     
     let mut mount = Mount::new();
     mount.mount("/", Static::new(Path::new("content/")));
