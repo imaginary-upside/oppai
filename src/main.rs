@@ -10,7 +10,7 @@ fn main() {
     load_config();
 
     thread::spawn(move || {
-        server::start_server();
+        server::start_server().unwrap();
     });
 
     let webview = WebViewBuilder::new()

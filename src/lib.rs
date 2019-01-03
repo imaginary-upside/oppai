@@ -8,3 +8,4 @@ pub mod backend;
 pub mod server;
 pub mod config;
 pub mod models;
+pub mod error;
