@@ -1,6 +1,6 @@
+extern crate rusqlite;
 extern crate serde_derive;
 extern crate serde_json;
-extern crate rusqlite;
 
 #[derive(Serialize)]
 pub struct Video {
@@ -13,7 +13,7 @@ pub struct Video {
 
 pub struct Actress {
     pub id: Option<i32>,
-    pub name: String
+    pub name: String,
 }
 
 pub struct Tag {
@@ -27,7 +27,7 @@ pub fn map_sql_to_video(row: &rusqlite::Row) -> Video {
         title: row.get(1),
         code: row.get(2),
         location: row.get(3),
-        cover: row.get(4)
+        cover: row.get(4),
     }
 }
 

@@ -1,28 +1,28 @@
 extern crate iron;
 extern crate mount;
+extern crate rusqlite;
 extern crate serde_json;
 extern crate staticfile;
-extern crate rusqlite;
 
 use crate::backend;
+use crate::config::SETTINGS;
 use crate::error::Error;
 use iron::prelude::*;
 use mount::Mount;
 use staticfile::Static;
 use std::io::Read;
 use std::path::Path;
-use crate::config::SETTINGS;
 
 #[derive(Deserialize)]
 struct SearchData {
     video: String,
     actress: String,
-    tags: String
+    tags: String,
 }
 
 pub fn start_server() -> Result<(), Error> {
     let assets_path = SETTINGS.read().unwrap().get::<String>("path")?;
-    
+
     let mut mount = Mount::new();
     mount.mount("/", Static::new(Path::new("content/")));
     mount.mount("/assets/", Static::new(Path::new(&assets_path)));
@@ -30,7 +30,9 @@ pub fn start_server() -> Result<(), Error> {
     mount.mount("/api/get_videos", get_videos);
     mount.mount("/api/play_video", play_video);
     mount.mount("/api/search", search);
-    Iron::new(mount).http("127.0.0.1:10010").expect("could not attach to 127.0.0.1:10010");
+    Iron::new(mount)
+        .http("127.0.0.1:10010")
+        .expect("could not attach to 127.0.0.1:10010");
 
     Ok(())
 }
@@ -63,6 +65,15 @@ fn search(req: &mut Request) -> IronResult<Response> {
     let mut body = String::new();
     req.body.read_to_string(&mut body).unwrap();
     let search_data: SearchData = serde_json::from_str(&body).unwrap();
-    let videos = backend::search(conn, &search_data.video, &search_data.actress, &search_data.tags).unwrap();
-    Ok(Response::with((iron::status::Ok, serde_json::to_string(&videos).unwrap())))
+    let videos = backend::search(
+        conn,
+        &search_data.video,
+        &search_data.actress,
+        &search_data.tags,
+    )
+    .unwrap();
+    Ok(Response::with((
+        iron::status::Ok,
+        serde_json::to_string(&videos).unwrap(),
+    )))
 }

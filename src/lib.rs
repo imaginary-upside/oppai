@@ -5,7 +5,7 @@ extern crate serde_json;
 extern crate lazy_static;
 
 pub mod backend;
-pub mod server;
 pub mod config;
-pub mod models;
 pub mod error;
+pub mod models;
+pub mod server;

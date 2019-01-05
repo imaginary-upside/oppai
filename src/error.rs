@@ -1,6 +1,6 @@
-extern crate rusqlite;
 extern crate config;
 extern crate glob;
+extern crate rusqlite;
 extern crate serde_json;
 
 #[derive(Debug)]

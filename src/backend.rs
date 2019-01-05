@@ -1,15 +1,15 @@
 extern crate glob;
 extern crate regex;
+extern crate rusqlite;
 extern crate serde_derive;
 extern crate serde_json;
-extern crate rusqlite;
 
-use glob::glob;
-use std::process::Command;
 use crate::config::SETTINGS;
-use crate::models::*;
-use std::fs;
 use crate::error::Error;
+use crate::models::*;
+use glob::glob;
+use std::fs;
+use std::process::Command;
 
 #[derive(Deserialize)]
 struct VideoConfig {
@@ -37,28 +37,40 @@ pub fn scan_videos(conn: rusqlite::Connection) -> Result<(), Error> {
     for path in glob(&(path + "/*.json"))? {
         let data = fs::read_to_string(path?)?;
         let video: VideoConfig = serde_json::from_str(&data)?;
-        conn.execute("INSERT INTO video (code, title, location, cover)
+        conn.execute(
+            "INSERT INTO video (code, title, location, cover)
                      VALUES (?1, ?2, ?3, ?4)",
-                     &[&video.code, &video.title, &video.location, &video.cover])?;
+            &[&video.code, &video.title, &video.location, &video.cover],
+        )?;
         let video_id = conn.last_insert_rowid();
 
         for actress in video.cast {
-            conn.execute("insert into actress (name) select ?1
+            conn.execute(
+                "insert into actress (name) select ?1
                          where not exists(select 1 from actress where name = ?1)",
-                &[&actress])?;
+                &[&actress],
+            )?;
 
-
-            let actress_id = conn.query_row("select rowid from actress where name = ?1",
-                                            &[&actress],
-                                            |row| row.get(0))?;
-            conn.execute("insert into video_actress (video_id, actress_id) values (?1, ?2)",
-                &[video_id, actress_id])?;
+            let actress_id = conn.query_row(
+                "select rowid from actress where name = ?1",
+                &[&actress],
+                |row| row.get(0),
+            )?;
+            conn.execute(
+                "insert into video_actress (video_id, actress_id) values (?1, ?2)",
+                &[video_id, actress_id],
+            )?;
         }
 
         for tag in video.genres {
             conn.execute("insert or ignore into tag (name) values (?1)", &[&tag])?;
-            let tag_id = conn.query_row("select id from tag where name = ?1", &[&tag], |row| row.get(0))?;
-            conn.execute("insert into video_tag (video_id, tag_id) values (?1, ?2)", &[video_id, tag_id])?;
+            let tag_id = conn.query_row("select id from tag where name = ?1", &[&tag], |row| {
+                row.get(0)
+            })?;
+            conn.execute(
+                "insert into video_tag (video_id, tag_id) values (?1, ?2)",
+                &[video_id, tag_id],
+            )?;
         }
     }
 
@@ -66,29 +78,34 @@ pub fn scan_videos(conn: rusqlite::Connection) -> Result<(), Error> {
 }
 
 pub fn play_video(conn: rusqlite::Connection, id: i32) -> Result<(), Error> {
-    let video = conn.query_row("select rowid, * from video where rowid = ?1",
-                               &[id],
-                               map_sql_to_video)?;
-    Command::new("xdg-open")
-        .arg(video.location)
-        .output()?;
+    let video = conn.query_row(
+        "select rowid, * from video where rowid = ?1",
+        &[id],
+        map_sql_to_video,
+    )?;
+    Command::new("xdg-open").arg(video.location).output()?;
     Ok(())
 }
 
-pub fn search(conn: rusqlite::Connection, video_text: &str, actress_text: &str, tags_text: &str) -> Result<Vec<Video>, Error> {
+pub fn search(
+    conn: rusqlite::Connection,
+    video_text: &str,
+    actress_text: &str,
+    tags_text: &str,
+) -> Result<Vec<Video>, Error> {
     let a_text = format!("%{}%", actress_text);
     let t_text = format!("%{}%", tags_text);
-    
+
     let mut sql = String::from(
-       	"select distinct(video.rowid), video.* from video
+        "select distinct(video.rowid), video.* from video
 	left join video_actress on video_actress.video_id = video.rowid
 	left join actress on actress.rowid = video_actress.actress_id
 	left join video_tag on video_tag.video_id = video.rowid
 	left join tag on tag.id = video_tag.tag_id
 	where actress.name like ?1
-	and tag.name like ?2"
+	and tag.name like ?2",
     );
-    let mut values = vec!(a_text, t_text);
+    let mut values = vec![a_text, t_text];
 
     if video_text != "" {
         sql.push_str(" and video match ?3");
