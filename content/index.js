@@ -15,6 +15,7 @@ async function main() {
 
   document.getElementById("search_video").addEventListener("search", search);
   document.getElementById("search_actress").addEventListener("search", search);
+  document.getElementById("search_tags").addEventListener("search", search);
 
   document.getElementById("scan").addEventListener("click", async () => {
     await fetch("/api/scan_videos");
@@ -29,9 +30,10 @@ main();
 async function search() {
   let videoDoc = document.getElementById("search_video");
   let actressDoc = document.getElementById("search_actress");
-  let body = { video: videoDoc.value, actress: actressDoc.value }
+  let tagsDoc = document.getElementById("search_tags");
+  let body = { video: videoDoc.value, actress: actressDoc.value, tags: tagsDoc.value }
   let uri = "/api/search/";
-  if (body.video == "" && body.actress == "") {
+  if (body.video == "" && body.actress == "" && body.tags == "") {
     uri = "/api/get_videos";
   }
   

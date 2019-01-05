@@ -16,6 +16,11 @@ pub struct Actress {
     pub name: String
 }
 
+pub struct Tag {
+    pub id: Option<i32>,
+    pub name: String,
+}
+
 pub fn map_sql_to_video(row: &rusqlite::Row) -> Video {
     Video {
         id: Some(row.get(0)),
@@ -28,6 +33,13 @@ pub fn map_sql_to_video(row: &rusqlite::Row) -> Video {
 
 pub fn map_sql_to_actress(row: &rusqlite::Row) -> Actress {
     Actress {
+        id: Some(row.get(0)),
+        name: row.get(1),
+    }
+}
+
+pub fn map_sql_to_tag(row: &rusqlite::Row) -> Tag {
+    Tag {
         id: Some(row.get(0)),
         name: row.get(1),
     }
