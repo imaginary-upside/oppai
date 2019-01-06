@@ -28,52 +28,57 @@ pub fn get_videos(conn: rusqlite::Connection) -> Result<Vec<Video>, Error> {
     Ok(video_iter.map(|video| video.unwrap()).collect())
 }
 
-pub fn scan_videos(conn: rusqlite::Connection) -> Result<(), Error> {
-    conn.execute("delete from video", rusqlite::NO_PARAMS)?;
-    conn.execute("delete from actress", rusqlite::NO_PARAMS)?;
-    conn.execute("delete from video_actress", rusqlite::NO_PARAMS)?;
+pub fn scan_videos(mut conn: rusqlite::Connection) -> Result<(), Error> {
+    let tx = conn.transaction()?;
+    
+    tx.execute("delete from video", rusqlite::NO_PARAMS)?;
+    tx.execute("delete from actress", rusqlite::NO_PARAMS)?;
+    tx.execute("delete from video_actress", rusqlite::NO_PARAMS)?;
 
     // last unwrap is a pain to put into crate::error
     let path = SETTINGS.read().unwrap().get::<String>("path")?.trim_end_matches("/").to_owned();
     for entry in glob(&(path + "/*.json"))? {
         let data = fs::read_to_string(entry?)?;
+
         let video: VideoConfig = serde_json::from_str(&data)?;
-        conn.execute(
+        tx.execute(
             "INSERT INTO video (code, title, location, cover)
                      VALUES (?1, ?2, ?3, ?4)",
             &[&video.code, &video.title, &video.location, &video.cover],
         )?;
-        let video_id = conn.last_insert_rowid();
+        let video_id = tx.last_insert_rowid();
 
         for actress in video.cast {
-            conn.execute(
+            tx.execute(
                 "insert into actress (name) select ?1
                          where not exists(select 1 from actress where name = ?1)",
                 &[&actress],
             )?;
 
-            let actress_id = conn.query_row(
+            let actress_id = tx.query_row(
                 "select rowid from actress where name = ?1",
                 &[&actress],
                 |row| row.get(0),
             )?;
-            conn.execute(
+            tx.execute(
                 "insert into video_actress (video_id, actress_id) values (?1, ?2)",
                 &[video_id, actress_id],
             )?;
         }
 
         for tag in video.genres {
-            conn.execute("insert or ignore into tag (name) values (?1)", &[&tag])?;
-            let tag_id = conn.query_row("select id from tag where name = ?1", &[&tag], |row| {
+            tx.execute("insert or ignore into tag (name) values (?1)", &[&tag])?;
+            let tag_id = tx.query_row("select id from tag where name = ?1", &[&tag], |row| {
                 row.get(0)
             })?;
-            conn.execute(
+            tx.execute(
                 "insert into video_tag (video_id, tag_id) values (?1, ?2)",
                 &[video_id, tag_id],
             )?;
         }
     }
+
+    tx.commit()?;
 
     Ok(())
 }
