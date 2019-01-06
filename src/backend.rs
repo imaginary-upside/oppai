@@ -17,7 +17,6 @@ struct VideoConfig {
     code: String,
     title: String,
     location: String,
-    cover: String,
     cast: Vec<String>,
     genres: Vec<String>,
 }
@@ -42,9 +41,9 @@ pub fn scan_videos(mut conn: rusqlite::Connection) -> Result<(), Error> {
 
         let video: VideoConfig = serde_json::from_str(&data)?;
         tx.execute(
-            "INSERT INTO video (code, title, location, cover)
-                     VALUES (?1, ?2, ?3, ?4)",
-            &[&video.code, &video.title, &video.location, &video.cover],
+            "INSERT INTO video (code, title, location)
+                     VALUES (?1, ?2, ?3)",
+            &[&video.code, &video.title, &video.location],
         )?;
         let video_id = tx.last_insert_rowid();
 

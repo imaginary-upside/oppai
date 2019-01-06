@@ -22,12 +22,13 @@ pub struct Tag {
 }
 
 pub fn map_sql_to_video(row: &rusqlite::Row) -> Video {
+    let code: String = row.get(2);
     Video {
         id: Some(row.get(0)),
         title: row.get(1),
-        code: row.get(2),
+        code: code.to_owned(),
         location: row.get(3),
-        cover: row.get(4),
+        cover: format!("{} Cover Thumb.jpg", code),
     }
 }
 
