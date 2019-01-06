@@ -9,6 +9,7 @@ use crate::error::Error;
 use crate::models::*;
 use glob::glob;
 use std::fs;
+use std::path::Path;
 use std::process::Command;
 
 #[derive(Deserialize)]
@@ -33,9 +34,9 @@ pub fn scan_videos(conn: rusqlite::Connection) -> Result<(), Error> {
     conn.execute("delete from video_actress", rusqlite::NO_PARAMS)?;
 
     // last unwrap is a pain to put into crate::error
-    let path = SETTINGS.read().unwrap().get::<String>("path")?;
-    for path in glob(&(path + "/*.json"))? {
-        let data = fs::read_to_string(path?)?;
+    let path = SETTINGS.read().unwrap().get::<String>("path")?.trim_end_matches("/").to_owned();
+    for entry in glob(&(path + "/*.json"))? {
+        let data = fs::read_to_string(entry?)?;
         let video: VideoConfig = serde_json::from_str(&data)?;
         conn.execute(
             "INSERT INTO video (code, title, location, cover)
@@ -83,7 +84,11 @@ pub fn play_video(conn: rusqlite::Connection, id: i32) -> Result<(), Error> {
         &[id],
         map_sql_to_video,
     )?;
-    Command::new("xdg-open").arg(video.location).output()?;
+    let path = Path::new(&SETTINGS.read().unwrap().get::<String>("path")?)
+        .join(&video.location)
+        .as_os_str()
+        .to_owned();
+    Command::new("xdg-open").arg(&path).output()?;
     Ok(())
 }
 
