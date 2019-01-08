@@ -8,6 +8,7 @@ use crate::config::SETTINGS;
 use crate::error::Error;
 use crate::models::*;
 use glob::glob;
+use std::ffi::OsString;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
@@ -19,6 +20,7 @@ struct VideoConfig {
     location: String,
     cast: Vec<String>,
     genres: Vec<String>,
+    release_date: String,
 }
 
 pub fn get_videos(conn: rusqlite::Connection) -> Result<Vec<Video>, Error> {
@@ -29,21 +31,31 @@ pub fn get_videos(conn: rusqlite::Connection) -> Result<Vec<Video>, Error> {
 
 pub fn scan_videos(mut conn: rusqlite::Connection) -> Result<(), Error> {
     let tx = conn.transaction()?;
-    
+
     tx.execute("delete from video", rusqlite::NO_PARAMS)?;
     tx.execute("delete from actress", rusqlite::NO_PARAMS)?;
     tx.execute("delete from video_actress", rusqlite::NO_PARAMS)?;
 
     // last unwrap is a pain to put into crate::error
-    let path = SETTINGS.read().unwrap().get::<String>("path")?.trim_end_matches("/").to_owned();
+    let path = SETTINGS
+        .read()
+        .unwrap()
+        .get::<String>("path")?
+        .trim_end_matches("/")
+        .to_owned();
     for entry in glob(&(path + "/*.json"))? {
         let data = fs::read_to_string(entry?)?;
 
         let video: VideoConfig = serde_json::from_str(&data)?;
         tx.execute(
-            "INSERT INTO video (code, title, location)
-                     VALUES (?1, ?2, ?3)",
-            &[&video.code, &video.title, &video.location],
+            "INSERT INTO video (code, title, location, release_date)
+                     VALUES (?1, ?2, ?3, ?4)",
+            &[
+                &video.code,
+                &video.title,
+                &video.location,
+                &video.release_date,
+            ],
         )?;
         let video_id = tx.last_insert_rowid();
 
@@ -88,11 +100,43 @@ pub fn play_video(conn: rusqlite::Connection, id: i32) -> Result<(), Error> {
         &[id],
         map_sql_to_video,
     )?;
-    let path = Path::new(&SETTINGS.read().unwrap().get::<String>("path")?)
+
+    let path = Path::new(&SETTINGS.read().unwrap().get_str("path")?)
         .join(&video.location)
         .as_os_str()
         .to_owned();
-    Command::new("xdg-open").arg(&path).output()?;
+
+    let mut args = vec![path];
+
+    match SETTINGS.read().unwrap().get_str("custom_title_arg") {
+        Ok(title_arg) => {
+            let mut stmt = conn.prepare(
+                "select actress.rowid, actress.* from actress
+                join video_actress on video_actress.actress_id = actress.rowid
+                where video_actress.video_id = ?1",
+            )?;
+            let actress_iter = stmt.query_map(&[video.id], map_sql_to_actress)?;
+            let cast: Vec<String> = actress_iter.map(|actress| actress.unwrap().name).collect();
+
+            let title = format!(
+                "[{}] {} [{}] ({})",
+                video.code,
+                video.title,
+                cast.join(", "),
+                video.release_date
+            );
+            args.push(OsString::from(title_arg));
+            args.push(OsString::from(title));
+        }
+        Err(_e) => {}
+    }
+
+    let player = match SETTINGS.read().unwrap().get_str("player") {
+        Ok(player) => player,
+        Err(_e) => String::from("xdg-open"),
+    };
+
+    Command::new(&player).args(&args).spawn()?;
     Ok(())
 }
 

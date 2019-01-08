@@ -1,7 +1,8 @@
 create virtual table video using fts5(
   title,
   code,
-  location
+  location,
+  release_date
 );
 
 create virtual table actress using fts5(

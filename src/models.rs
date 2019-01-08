@@ -9,6 +9,7 @@ pub struct Video {
     pub code: String,
     pub location: String,
     pub cover: String,
+    pub release_date: String,
 }
 
 pub struct Actress {
@@ -29,6 +30,7 @@ pub fn map_sql_to_video(row: &rusqlite::Row) -> Video {
         code: code.to_owned(),
         location: row.get(3),
         cover: format!("{} Cover Thumb.jpg", code),
+        release_date: row.get(4),
     }
 }
 
