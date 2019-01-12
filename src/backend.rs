@@ -147,6 +147,10 @@ pub fn search(
     tags_text: &str,
 ) -> Result<Vec<Video>, Error> {
     let a_text = format!("%{}%", actress_text);
+    let a_text_reverse = format!(
+        "%{}%",
+        actress_text.rsplit(" ").collect::<Vec<&str>>().join(" ")
+    );
     let t_text = format!("%{}%", tags_text);
 
     let mut sql = String::from(
@@ -155,13 +159,13 @@ pub fn search(
 	left join actress on actress.rowid = video_actress.actress_id
 	left join video_tag on video_tag.video_id = video.rowid
 	left join tag on tag.id = video_tag.tag_id
-	where actress.name like ?1
-	and tag.name like ?2",
+	where (actress.name like ?1 or actress.name like ?2)
+	and tag.name like ?3",
     );
-    let mut values = vec![a_text, t_text];
+    let mut values = vec![a_text, a_text_reverse, t_text];
 
     if video_text != "" {
-        sql.push_str(" and video match ?3");
+        sql.push_str(" and video match ?4");
         values.push(String::from(video_text));
     }
 
