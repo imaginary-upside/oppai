@@ -19,3 +19,4 @@ regex = "1"
 config = "0.9"
 lazy_static = "1"
 rusqlite = "0.16"
+asianscreens = { git = "https://github.com/thighstump/asianscreens" }

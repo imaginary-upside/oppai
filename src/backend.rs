@@ -1,3 +1,4 @@
+extern crate asianscreens;
 extern crate glob;
 extern crate regex;
 extern crate rusqlite;
@@ -24,7 +25,12 @@ struct VideoConfig {
 }
 
 pub fn get_videos(conn: rusqlite::Connection) -> Result<Vec<Video>, Error> {
-    let mut stmt = conn.prepare("SELECT rowid, * FROM video")?;
+    let mut stmt = conn.prepare(
+        "SELECT distinct(video.rowid), video.* FROM video
+        join video_actress on video_actress.video_id = video.rowid
+        join actress on actress.rowid = video_actress.actress_id
+        order by date(actress.birthdate) desc",
+    )?;
     let video_iter = stmt.query_map(rusqlite::NO_PARAMS, map_sql_to_video)?;
     Ok(video_iter.map(|video| video.unwrap()).collect())
 }
@@ -33,7 +39,7 @@ pub fn scan_videos(mut conn: rusqlite::Connection) -> Result<(), Error> {
     let tx = conn.transaction()?;
 
     tx.execute("delete from video", rusqlite::NO_PARAMS)?;
-    tx.execute("delete from actress", rusqlite::NO_PARAMS)?;
+    //tx.execute("delete from actress", rusqlite::NO_PARAMS)?;
     tx.execute("delete from video_actress", rusqlite::NO_PARAMS)?;
 
     // last unwrap is a pain to put into crate::error
@@ -60,11 +66,26 @@ pub fn scan_videos(mut conn: rusqlite::Connection) -> Result<(), Error> {
         let video_id = tx.last_insert_rowid();
 
         for actress in video.cast {
-            tx.execute(
-                "insert into actress (name) select ?1
-                         where not exists(select 1 from actress where name = ?1)",
+            let count: i64 = tx.query_row(
+                "select count(*) from actress where name = ?1",
                 &[&actress],
+                |row| row.get(0),
             )?;
+            if count == 0 {
+                println!("{}", actress);
+                let birthdate = match asianscreens::client::find(&actress) {
+                    Ok(v) => v.map_or("NULL".to_string(), |a| {
+                        a.birthdate.unwrap_or("NULL".to_string())
+                    }),
+                    Err(_e) => "NULL".to_string(),
+                };
+                tx.execute(
+                    "insert into actress (name, birthdate) values (?1, ?2)",
+                    &[&actress, &birthdate],
+                )?;
+
+                std::thread::sleep(std::time::Duration::from_secs(5));
+            }
 
             let actress_id = tx.query_row(
                 "select rowid from actress where name = ?1",
@@ -159,6 +180,7 @@ pub fn search(
 	left join actress on actress.rowid = video_actress.actress_id
 	left join video_tag on video_tag.video_id = video.rowid
 	left join tag on tag.id = video_tag.tag_id
+        order by date(actress.birthdate) desc
 	where (actress.name like ?1 or actress.name like ?2)
 	and tag.name like ?3",
     );

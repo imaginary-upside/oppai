@@ -6,7 +6,8 @@ create virtual table video using fts5(
 );
 
 create virtual table actress using fts5(
-  name
+  name,
+  birthdate
 );
 
 create table video_actress (
