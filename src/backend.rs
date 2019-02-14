@@ -180,7 +180,6 @@ pub fn search(
 	left join actress on actress.rowid = video_actress.actress_id
 	left join video_tag on video_tag.video_id = video.rowid
 	left join tag on tag.id = video_tag.tag_id
-        order by date(actress.birthdate) desc
 	where (actress.name like ?1 or actress.name like ?2)
 	and tag.name like ?3",
     );
@@ -191,7 +190,31 @@ pub fn search(
         values.push(String::from(video_text));
     }
 
+    sql.push_str(" order by date(actress.birthdate) desc");
+
     let mut stmt = conn.prepare(&sql)?;
     let video_iter = stmt.query_map(&values, map_sql_to_video)?;
     Ok(video_iter.map(|video| video.unwrap()).collect())
+}
+
+pub fn video_details(
+    conn: rusqlite::Connection,
+    code: &str,
+) -> Result<(Video, Vec<Actress>), Error> {
+    let video: Video = conn.query_row(
+        "select rowid, * from video where code = ?1",
+        &[code],
+        map_sql_to_video,
+    )?;
+    let mut stmt = conn.prepare(
+        "select actress.rowid, actress.* from actress
+        join video_actress on video_actress.actress_id = actress.rowid
+        where video_actress.video_id = ?1",
+    )?;
+    let cast: Vec<Actress> = stmt
+        .query_map(&[video.id], map_sql_to_actress)?
+        .map(|a| a.unwrap())
+        .collect();
+
+    Ok((video, cast))
 }

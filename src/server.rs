@@ -30,6 +30,7 @@ pub fn start_server() -> Result<(), Error> {
     mount.mount("/api/get_videos", get_videos);
     mount.mount("/api/play_video", play_video);
     mount.mount("/api/search", search);
+    mount.mount("/api/video_details", video_details);
     Iron::new(mount)
         .http("127.0.0.1:10010")
         .expect("could not attach to 127.0.0.1:10010");
@@ -75,5 +76,19 @@ fn search(req: &mut Request) -> IronResult<Response> {
     Ok(Response::with((
         iron::status::Ok,
         serde_json::to_string(&videos).unwrap(),
+    )))
+}
+
+fn video_details(req: &mut Request) -> IronResult<Response> {
+    let conn = rusqlite::Connection::open("database.sqlite").unwrap();
+
+    let mut code = String::new();
+    req.body.read_to_string(&mut code).unwrap();
+
+    let details = backend::video_details(conn, &code).unwrap();
+
+    Ok(Response::with((
+        iron::status::Ok,
+        serde_json::to_string(&details).unwrap(),
     )))
 }

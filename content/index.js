@@ -72,5 +72,34 @@ function renderVideos(videos) {
       http.send(video["id"]);
     });
     videosDoc.appendChild(videoDoc);
+
+    videoDoc.addEventListener("contextmenu", async e => {
+      e.preventDefault();
+
+      if (videoDoc.querySelector("ul") !== null) {
+        videoDoc.querySelector("ul").classList.toggle("hidden");
+      } else {
+        let response = await fetch("/api/video_details/", {
+          method: "POST",
+          body: videoDoc.querySelector(".title").innerText
+        });
+        let details = JSON.parse(await response.text());
+        
+        let list = document.createElement("ul");
+        videoDoc.appendChild(list);
+        details[1].forEach(actress => {
+          let li = document.createElement("li");
+          li.innerText = actress["name"]
+
+          if (actress["birthdate"] !== "NULL") {
+            let birthdate = moment(actress["birthdate"]);
+            let releaseDate = moment(details[0]["release_date"]);
+            li.innerText += " (" + releaseDate.diff(birthdate, "years") + ")";
+          }
+
+          list.appendChild(li);
+        });
+      }
+    });
   });
 }

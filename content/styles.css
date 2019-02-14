@@ -23,3 +23,7 @@
 .video .title {
   text-align: center;
 }
+
+.hidden {
+  display: none;
+}

@@ -12,6 +12,7 @@ pub struct Video {
     pub release_date: String,
 }
 
+#[derive(Serialize)]
 pub struct Actress {
     pub id: Option<i32>,
     pub name: String,
