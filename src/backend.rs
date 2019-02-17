@@ -29,7 +29,7 @@ pub fn get_videos(conn: rusqlite::Connection) -> Result<Vec<Video>, Error> {
         "SELECT distinct(video.rowid), video.* FROM video
         join video_actress on video_actress.video_id = video.rowid
         join actress on actress.rowid = video_actress.actress_id
-        order by date(actress.birthdate) desc",
+        order by date(actress.birthdate) - date(video.release_date) desc",
     )?;
     let video_iter = stmt.query_map(rusqlite::NO_PARAMS, map_sql_to_video)?;
     Ok(video_iter.map(|video| video.unwrap()).collect())
@@ -190,7 +190,7 @@ pub fn search(
         values.push(String::from(video_text));
     }
 
-    sql.push_str(" order by date(actress.birthdate) desc");
+    sql.push_str(" order by date(actress.birthdate) - date(video.release_date) desc");
 
     let mut stmt = conn.prepare(&sql)?;
     let video_iter = stmt.query_map(&values, map_sql_to_video)?;
