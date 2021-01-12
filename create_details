@@ -1,0 +1,42 @@
+#!/usr/bin/env ruby
+require "bundler/inline"
+require "json"
+
+gemfile do
+  source "https://rubygems.org"
+  gem "r18_client", git: "https://github.com/imaginary-upside/r18_client/"
+  gem "rest-client"
+end
+
+client = R18Client::Client.new
+
+Dir.glob("#{ARGV[0]}/*.{mkv,mp4,avi,wmv}").each do |video|
+  code = File.basename(video, File.extname(video)) 
+  
+  next if File.exist?("#{ARGV[0]}/#{code}.json")
+
+  client.load(code)
+  next unless client.success
+
+  img = RestClient.get(client.cover).body
+  File.write("#{ARGV[0]}/#{code} Cover.jpg", img)
+
+  system(
+    "convert",
+    "#{ARGV[0]}/#{code} Cover.jpg",
+    "-resize", "200x125",
+    "#{ARGV[0]}/#{code} Cover Thumb.jpg"
+  )
+
+  File.write("#{ARGV[0]}/#{code}.json", JSON.pretty_generate({
+    title: client.title,
+    cast: client.cast,
+    cover: "#{code} Cover.jpg",
+    release_date: client.release_date,
+    genres: client.genres,
+    code: code,
+    location: video
+  }))
+
+  sleep 1
+end
